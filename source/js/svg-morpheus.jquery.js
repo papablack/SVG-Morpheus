@@ -2,8 +2,14 @@
 
     $.SVGMorpheus = {
         options: function (options) {
+
+            if (typeof options === 'undefined') {
+                options = {};
+            }
+
             var opts = {
-                action: 'queue'
+                action: 'queue',
+                scrollOptions: {}
             };
 
             return $.extend(opts, options);
@@ -52,12 +58,33 @@
             }
 
             return date;
+        },
+        handleQueue: function (morpheusInitialized, opts) {
+            var morpheusObject = morpheusInitialized.object;
+            var morpheusData = morpheusInitialized.data;
+
+            morpheusObject.queue(
+                morpheusData.groupIds,
+                opts.animOpts
+            );
+        },
+        handleScrollProgress: function (morpheusInitialized, opts) {
+            var morpheusObject = morpheusInitialized.object;
+            var morpheusData = morpheusInitialized.data;
+
+            var shapeIndex = typeof opts.shapeIndex === 'undefined' ? 0 : opts.shapeIndex;
+            morpheusObject.setupAnimationBase(morpheusData.groupIds[0]);
+            morpheusObject.handleScroll(morpheusData.groupIds, opts);
+
+            $(document).scroll(function (e) {
+                morpheusObject.handleScroll(morpheusData.groupIds, opts);
+            });
         }
     };
 
     $.fn.SVGMorpheus = function (options) {
 
-        if (typeof options == 'undefined') {
+        if (typeof options === 'undefined') {
             options = {};
         }
 
@@ -71,28 +98,18 @@
 
             var morpheusInitData = $tools.instantize(element);
 
-            var morpheusObject = morpheusInitData.object;
-            var morpheusData = morpheusInitData.data;
-
             switch (opts.action) {
 
                 case 'queue' :
-                    morpheusObject.queue(
-                        morpheusData.groupIds,
-                        opts
-                    );
+
+                    $.SVGMorpheus.handleQueue(morpheusInitData, opts);
+
                     break;
                 case 'scrollProgress':
 
-                    var shapeIndex = typeof opts.shapeIndex == 'undefined' ? 0 : opts.shapeIndex;
-                    morpheusObject.setupAnimationBase(morpheusData.groupIds[shapeIndex]);
-                    morpheusObject.handleScroll(morpheusData.groupIds[shapeIndex]);
+                    $.SVGMorpheus.handleScrollProgress(morpheusInitData, opts);
 
-                    $(document).scroll(function (e) {
-                        morpheusObject.handleScroll(morpheusData.groupIds[shapeIndex]);
-                    });
                     break;
-
                 default:
                     break;
             }

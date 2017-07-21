@@ -472,7 +472,7 @@ SVGMorpheus.prototype.queue = function (groupIds, options, iterationStep) {
  * @param progress - 0 >= progress <= 1
  * @param callback
  */
-SVGMorpheus.prototype.progressTo = function (stepId, progress, interval, callback) {
+SVGMorpheus.prototype.progressTo = function (stepId, progress, opts) {
 
     var $this = this;
 
@@ -480,12 +480,12 @@ SVGMorpheus.prototype.progressTo = function (stepId, progress, interval, callbac
         $this.currentProgress = 0;
     }
 
-    if (typeof $this.interval == 'undefined') {
-        $this.interval = 10;
+    if (typeof opts.interval == 'undefined') {
+        opts.interval = 10;
     }
 
-    if (typeof callback == 'undefined') {
-        callback = function ($this, stepId, callback) {
+    if (typeof opts.callback == 'undefined') {
+        opts.callback = function ($this, stepId, callback) {
             return true;
         }
     }
@@ -494,7 +494,7 @@ SVGMorpheus.prototype.progressTo = function (stepId, progress, interval, callbac
     $this.currentProgress = progress;
 
     if (progress == 1) {
-        callback($this, stepId, callback);
+        opts.callback($this, stepId, opts.callback);
     }
 };
 
@@ -505,27 +505,82 @@ SVGMorpheus.prototype.setupAnimationBase = function (stepId) {
     $this._updateAnimationProgress(0);
 }
 
+SVGMorpheus.prototype.lastThreshold = 0;
+
 SVGMorpheus.prototype.scrollOptions = {}
+
+SVGMorpheus.prototype.isNaturalNumber = function (n) {
+    n = n.toString(); // force the value incase it is not
+    var n1 = Math.abs(n),
+        n2 = parseInt(n, 10);
+    return !isNaN(n1) && n2 === n1 && n1.toString() === n;
+}
 
 SVGMorpheus.prototype.handleScroll = function (theShape, options) {
 
+    var $this = this;
+    var multiShape = false;
+
     if (typeof options == 'undefined') {
-        options = {};
+        options = {
+            scrollOptions: {},
+        };
     }
 
-    for (opt in options) {
-        SVGMorpheus.prototype.scrollOptions[opt] = options[opt];
+    if (typeof theShape == 'object') {
+        multiShape = true;
+    }
+
+    for (opt in options.scrollOptions) {
+        $this.scrollOptions[opt] = options.scrollOptions[opt];
     }
 
     var currentScroll = window.scrollY;
-    var calculatedProgress = (currentScroll) / ($(document).height() - $(window).height());
 
-    if (calculatedProgress > 1) {
+    var range = $(document).height() - $(window).height();
+
+    var trueShape = theShape;
+
+
+    if (multiShape) {
+        var indexRange = theShape.length - 1;
+
+        range = range / indexRange;
+    }
+
+    var calculatedProgress = currentScroll / range;
+
+    var trueProgress = calculatedProgress;
+
+    if (multiShape) {
+
+        var shapeIndex = Math.floor(calculatedProgress);
+
+        trueShape = theShape[shapeIndex];
+
+        if (shapeIndex !== $this.lastThreshold) {
+
+            console.log('reset', shapeIndex);
+
+            $this.setupAnimationBase(trueShape);
+
+            $this.lastThreshold = shapeIndex;
+        }
+
+    }
+
+    if ((calculatedProgress > 1 && !multiShape) || multiShape && calculatedProgress > indexRange) {
         return;
     }
 
-    this.progressTo(theShape, calculatedProgress);
+    if (calculatedProgress > 1 && multiShape) {
+        trueProgress = calculatedProgress - shapeIndex;
+    }
+
+    this.progressTo(trueShape, trueProgress, $this.scrollOptions);
     this.scrollSave('mainScroll', currentScroll);
+
+    console.log(calculatedProgress);
 };
 
 SVGMorpheus.prototype.__scrollSave = {};
